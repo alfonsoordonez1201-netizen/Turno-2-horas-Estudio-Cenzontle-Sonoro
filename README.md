@@ -1,30 +1,97 @@
-# Totalum project
+# Estudio Cenzontle Sonoro — reservas de sala
 
-A Next.js 16 app built with [Totalum](https://totalum.app). It runs on Cloudflare Workers; its data is a D1 (SQLite)
-database used through Drizzle ORM (`src/db/`), with better-auth for accounts (`src/lib/auth.ts`).
+> Nota: este proyecto se comparte con partners@kodarvia.com.
 
-## Run locally
+Una sola página (`/`) para reservar las tres salas de un estudio de grabación independiente. No hay base de datos,
+login, carrito ni cuentas: todo vive en el `localStorage` del navegador.
 
-You need Node 22 and npm. On Linux, the local Workers runtime needs glibc 2.35 or newer (Ubuntu 22.04, Debian 12).
+## Qué es
 
-1. Download the source code and its `.env` from Totalum (with the VCaaS API: `GET /api/v1/vcaas/projects/<id>/source-code`
-   and `GET …/github/env`, whose `envDev` is the file), and put the `.env` in the project folder.
-2. `npm ci`
-3. `npm run dev`, then open <http://localhost:3100> (`PORT=4000 npm run dev` for another port).
+- Catálogo fijo de salas:
+  | Sala | Clave | Aforo | Precio |
+  | --- | --- | --- | --- |
+  | Cabina voz | `cabina-voz` | hasta 2 músicos | $900 MXN / 2h |
+  | Sala banda | `sala-banda` | hasta 8 músicos | $1800 MXN / 2h |
+  | Control mezcla | `control-mezcla` | hasta 3 músicos | $1400 MXN / 2h |
+- Grilla semanal de lunes a sábado con cuatro bloques de 2 horas: 10:00, 12:00, 16:00 y 18:00. Son 6 × 4 = 24
+  bloques por sala y 72 en total.
+- Estética de consola analógica en penumbra: fondo de cabina oscura, medidores VU encendidos para marcar «Ocupado»,
+  etiquetas de cinta y rosa mexicano brillante.
 
-`npm run dev` first applies the migrations in `drizzle/` to the database it serves: with `TOTALUM_ENV=dev` and a
-`TOTALUM_PROJECT_KEY` (the `.env` above), your project's dev database on Totalum, the one the preview shows, so rows
-you create there appear in the preview too; otherwise (a project without a dev database, or no key) a local database
-in `.wrangler/`, which never reaches Totalum (to start it again empty, stop the server and delete `.wrangler/state`).
+## Cómo se usa
 
-The built-in integrations (e-mail, AI, files, …) call Totalum with `TOTALUM_PROJECT_KEY` from `.env` and are billed
-to your project as usual. Without a key the app still runs, and only those calls fail with `SDK_NOT_CONFIGURED`.
+1. Elegí la sala con las tres pestañas (se ve descripción, aforo y precio «MXN / 2h»).
+2. Mirá la semana. Se abre en la semana actual (de lunes a sábado; si hoy es domingo, la que viene). Con
+   «Semana anterior», «Semana siguiente» y «Esta semana» te movés por el calendario.
+3. Cada celda muestra sala, fecha y hora, y dice **Libre** (botón) u **Ocupado** (medidor VU encendido, deshabilitado,
+   con `aria-disabled`). Un día sin nada libre muestra «Sin bloques libres».
+4. Tocá un bloque libre: se abre el formulario con Nombre, Correo (tiene que terminar en `@example.com`), Nota
+   (opcional) y, solo en Sala banda, «Cantidad de músicos» (obligatoria, de 1 a 8).
+5. «Confirmar reserva» guarda primero en `localStorage`; si guarda bien, muestra el mensaje de éxito y baja un `.ics`.
+   Si guardar falla, el formulario conserva lo escrito y muestra el error.
+6. «Liberar la semana» (con confirmación `window.confirm`) borra todas las reservas de la semana mostrada, de las
+   tres salas: los 72 bloques quedan libres.
 
-## Commands
+## Modelo de datos
 
-- `npm run db:generate`: after you change `src/db/schema.ts`, writes the next migration to `drizzle/`. The next
-  `npm run dev` applies it (or run `npm run db:migrate`, or `npm run db:migrate -- --local` for the local database).
-- `npm run db:migrate`: applies the migrations to the project's database on Totalum, the one `TOTALUM_ENV` in `.env`
-  selects (`dev` or `live`).
-- `npm run build:preview`: the Cloudflare Workers build Totalum deploys. `npx wrangler dev` then serves that build on
-  <http://localhost:8787> in the Workers runtime, on the local database in `.wrangler/`.
+Cada reserva es un objeto dentro de un arreglo JSON:
+
+| Campo | Tipo | Detalle |
+| --- | --- | --- |
+| `id` | string | `crypto.randomUUID()` (la semilla usa un id fijo) |
+| `sala` | `'cabina-voz' \| 'sala-banda' \| 'control-mezcla'` | |
+| `fecha` | string | `YYYY-MM-DD`, fecha local |
+| `bloque` | `'10' \| '12' \| '16' \| '18'` | hora de inicio |
+| `nombre` | string | |
+| `correo` | string | normalizado: minúsculas y sin espacios; termina en `@example.com` |
+| `nota` | string | opcional (puede ser vacía) |
+| `musicos` | number | solo Sala banda (1–8) |
+
+Unicidad: no puede haber dos reservas con la misma `sala` + `fecha` + `bloque`; un duplicado se rechaza con un
+mensaje.
+
+## localStorage
+
+- Clave propia: `cenzontle-sonoro:reservas:v1`.
+- Se lee en un `useEffect` (después de hidratar) para evitar diferencias entre servidor y navegador.
+- Los datos persisten al recargar.
+
+## Semilla
+
+Solo si la clave **no existe**, se crea con una reserva de ejemplo: Sala banda, el próximo jueves (estrictamente
+posterior a hoy; si hoy es jueves, el de la semana siguiente), bloque `16`, nombre «Son istmeño», correo
+`son.istmeno@example.com`, 5 músicos, nota «sobre marimba». El id es determinístico:
+`semilla-sala-banda-<fecha>-16`. Si borrás reservas o liberás la semana, no se vuelve a sembrar (la clave ya existe).
+Como el jueves de la semilla suele caer en la semana siguiente, se llega con «Semana siguiente».
+
+## Archivo .ics
+
+Después de guardar se descarga solo `cenzontle-<sala>-<fecha>-<hora>h.ics`:
+
+- `VCALENDAR` con un `VEVENT`, fines de línea CRLF.
+- `UID`, `DTSTAMP` (UTC) y `DTSTART` en hora local flotante (`YYYYMMDDTHH0000`, sin zona).
+- `DURATION:PT2H` (2 horas) y `SUMMARY` con el nombre de la sala.
+- El botón «Bajar el .ics de nuevo» aparece en el mensaje de éxito.
+
+## Criterios de aceptación
+
+- Home `/` con nombre «Estudio Cenzontle Sonoro», `lang="es"`, textos en español rioplatense.
+- Tres salas con descripción, aforo y precio «MXN / 2h»; selector de sala.
+- 24 celdas por sala (6 días × 4 bloques), 72 en total; «Libre» clickable y «Ocupado» deshabilitado.
+- «Sin bloques libres» en un día completo.
+- Formulario con validaciones (correo `@example.com`, músicos 1–8 solo en Sala banda) y duplicados rechazados.
+- Guarda en localStorage antes de mostrar éxito; error con datos conservados si falla.
+- Descarga automática del `.ics` correcto.
+- Semilla única, persistencia al recargar, navegación de semanas.
+- «Liberar la semana» con confirmación deja los 72 bloques libres en la semana mostrada.
+- Usable desde 360 px de ancho.
+
+## Cómo correrlo
+
+Requiere Node 22 y npm.
+
+1. `npm ci`
+2. `npm run dev` y abrí <http://localhost:3100>.
+
+Archivos principales: `src/app/page.tsx`, `src/components/estudio/` (grilla, diálogo y medidor VU) y
+`src/lib/reservas.ts` (catálogo, fechas, almacenamiento y `.ics`).

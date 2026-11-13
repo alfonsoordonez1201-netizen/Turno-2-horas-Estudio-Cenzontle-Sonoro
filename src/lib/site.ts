@@ -1,7 +1,7 @@
 // The app's name and header links, in one place: the header, the footer and every page title read them.
 export const site = {
-  name: 'New Totalum app',
-  description: 'Built with Totalum',
+  name: 'Estudio Cenzontle Sonoro',
+  description: 'Reservá cabina de voz, sala de banda o control de mezcla por bloques de 2 horas. Estudio de grabación independiente, de músico a músico.',
   /** The logo image's URL (the user's file): the header, the footer and the browser icon show it. Empty: the name alone. */
   logo: '',
   /**

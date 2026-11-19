@@ -64,6 +64,23 @@ posterior a hoy; si hoy es jueves, el de la semana siguiente), bloque `16`, nomb
 `semilla-sala-banda-<fecha>-16`. Si borrás reservas o liberás la semana, no se vuelve a sembrar (la clave ya existe).
 Como el jueves de la semilla suele caer en la semana siguiente, se llega con «Semana siguiente».
 
+## Funcionalidades simuladas
+
+- **Correos:** no se envía ninguno. El campo «Correo» solo se valida (`@example.com`) y se guarda en el navegador.
+  La «confirmación» es el mensaje de éxito en pantalla más el archivo `.ics`.
+- **Pagos:** no hay cobro. El precio «MXN / 2h» es informativo; no existe carrito ni pasarela.
+- **WhatsApp y otros avisos:** no existen; no se manda ninguna notificación.
+- **Cuentas y base de datos:** no hay; las reservas solo existen en el navegador donde se hicieron (no se comparten
+  entre dispositivos).
+
+## Datos de ejemplo y cómo reiniciarlos
+
+La semilla (ver arriba) es una reserva de «Son istmeño». Para volver al estado inicial:
+
+1. Abrí las herramientas del navegador (F12) → Application/Almacenamiento → Local Storage.
+2. Borrá la clave `cenzontle-sonoro:reservas:v1` (o en la consola: `localStorage.removeItem('cenzontle-sonoro:reservas:v1')`).
+3. Recargá la página: se vuelve a crear la semilla.
+
 ## Archivo .ics
 
 Después de guardar se descarga solo `cenzontle-<sala>-<fecha>-<hora>h.ics`:

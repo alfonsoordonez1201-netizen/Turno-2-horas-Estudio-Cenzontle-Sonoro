@@ -58,11 +58,11 @@ mensaje.
 
 ## Semilla
 
-Solo si la clave **no existe**, se crea con una reserva de ejemplo: Sala banda, el próximo jueves (estrictamente
-posterior a hoy; si hoy es jueves, el de la semana siguiente), bloque `16`, nombre «Son istmeño», correo
-`son.istmeno@example.com`, 5 músicos, nota «sobre marimba». El id es determinístico:
-`semilla-sala-banda-<fecha>-16`. Si borrás reservas o liberás la semana, no se vuelve a sembrar (la clave ya existe).
-Como el jueves de la semilla suele caer en la semana siguiente, se llega con «Semana siguiente».
+Solo si la clave **no existe**, se crea con reservas de ejemplo: el próximo jueves (estrictamente posterior a hoy)
+queda **completo** (3 salas x 4 bloques = 12 reservas, incluida «Son istmeño», Sala banda, 16:00, 5 músicos, «sobre marimba»)
+y hay 10 reservas sueltas en otros días, entre 3 días antes y 7 días después de ese jueves. Los correos son
+`<nombre>@example.com` y los ids `semilla-<sala>-<fecha>-<bloque>`. Si borrás reservas o liberás la semana, no se vuelve a
+sembrar (la clave ya existe). Parte de los ejemplos caen en la semana siguiente: se llega con «Semana siguiente».
 
 ## Funcionalidades simuladas
 

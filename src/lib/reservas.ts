@@ -101,18 +101,56 @@ export function proximoJueves(hoy: Date): string {
 }
 
 // ---- almacenamiento ----
-export function reservaSemilla(hoy: Date): Reserva {
-  const fecha = proximoJueves(hoy);
-  return {
-    id: `semilla-sala-banda-${fecha}-16`,
-    sala: 'sala-banda',
-    fecha,
-    bloque: '16',
-    nombre: 'Son istmeño',
-    correo: 'son.istmeno@example.com',
-    nota: 'sobre marimba',
-    musicos: 5,
+export function reservasSemilla(hoy: Date): Reserva[] {
+  const jueves = deISO(proximoJueves(hoy));
+  const lista: Reserva[] = [];
+  const add = (sala: SalaId, dias: number, bloque: Bloque, nombre: string, nota: string, musicos?: number) => {
+    const fecha = aISO(sumarDias(jueves, dias));
+    const slug = nombre
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '.')
+      .replace(/^\.|\.$/g, '');
+    const r: Reserva = {
+      id: `semilla-${sala}-${fecha}-${bloque}`,
+      sala,
+      fecha,
+      bloque,
+      nombre,
+      correo: `${slug}@example.com`,
+      nota,
+    };
+    if (sala === 'sala-banda') r.musicos = musicos ?? 4;
+    lista.push(r);
   };
+  // Jueves: día completo (3 salas x 4 bloques)
+  const dia: [string, string][] = [
+    ['Son istmeño', 'sobre marimba'],
+    ['Los Alebrijes', 'ensayo general'],
+    ['Trío Jarocho', 'traen arpa'],
+    ['Cumbia del Valle', 'grabación de demo'],
+  ];
+  const bloques: Bloque[] = ['10', '12', '16', '18'];
+  const salas: SalaId[] = ['sala-banda', 'cabina-voz', 'control-mezcla'];
+  salas.forEach((sala, i) =>
+    bloques.forEach((b, j) => {
+      const [n, nota] = dia[(i + j) % 4];
+      add(sala, 0, b, i === 0 && j === 2 ? 'Son istmeño' : `${n}${i ? ' ' + (i + 1) : ''}`, nota, 5);
+    }),
+  );
+  // Días sueltos
+  add('cabina-voz', -3, '10', 'Lupita Ramírez', 'voz para single');
+  add('sala-banda', -3, '18', 'Banda Tehuana', 'ensayo con vientos', 7);
+  add('control-mezcla', -2, '12', 'Mario Cruz', 'mezcla de EP');
+  add('cabina-voz', -1, '16', 'Coro Mixteco', 'locución y coros');
+  add('sala-banda', 2, '10', 'Marimba Chiapaneca', 'ensayo', 6);
+  add('control-mezcla', 2, '16', 'Ana Villalobos', 'masterización');
+  add('cabina-voz', 5, '12', 'Rosa Montes', 'podcast');
+  add('sala-banda', 5, '16', 'Son de Madera', 'cuarteto', 4);
+  add('control-mezcla', 6, '10', 'Diego Salas', 'mezcla de cumbia');
+  add('cabina-voz', 7, '18', 'Pablo Ortega', 'locución');
+  return lista;
 }
 
 const esReserva = (r: unknown): r is Reserva => {
@@ -139,11 +177,11 @@ function leerLista(): Reserva[] {
   }
 }
 
-/** Carga las reservas; si la clave no existe, la crea con la reserva semilla. */
+/** Carga las reservas; si la clave no existe, la crea con las reservas de ejemplo. */
 export function cargarReservas(hoy: Date): Reserva[] {
   try {
     if (window.localStorage.getItem(STORAGE_KEY) === null) {
-      const semilla = [reservaSemilla(hoy)];
+      const semilla = reservasSemilla(hoy);
       try {
         window.localStorage.setItem(STORAGE_KEY, JSON.stringify(semilla));
       } catch {
